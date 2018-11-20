@@ -35,12 +35,15 @@
 @property (nonatomic, strong) UIView *customView;
 @property (nonatomic, strong) UITapGestureRecognizer *tapGesture;
 
+@property (nonatomic, strong) NSLayoutConstraint *centerYConstraint;
 @property (nonatomic, assign) CGFloat verticalOffset;
+@property (nonatomic, assign) CGFloat emptyDataViewHeight;
 @property (nonatomic, assign) CGFloat verticalSpace;
 
 @property (nonatomic, assign) BOOL fadeInOnDisplay;
 
 - (void)setupConstraints;
+- (void)adjustVerticalConstraints;
 - (void)prepareForReuse;
 
 @end
@@ -265,11 +268,13 @@ static char const * const kEmptyDataSetView =       "emptyDataSetView";
     return nil;
 }
 
-- (CGFloat)dzn_verticalOffset
+- (CGFloat)dzn_verticalOffsetWithEmptyDataViewHeight:(CGFloat)emptyDataViewHeight
 {
     CGFloat offset = 0.0;
     
-    if (self.emptyDataSetSource && [self.emptyDataSetSource respondsToSelector:@selector(verticalOffsetForEmptyDataSet:)]) {
+    if (self.emptyDataSetSource && [self.emptyDataSetSource respondsToSelector:@selector(verticalOffsetForEmptyDataSet:emptyDataViewHeight:)]) {
+        offset = [self.emptyDataSetSource verticalOffsetForEmptyDataSet:self emptyDataViewHeight:emptyDataViewHeight];
+    } else if (self.emptyDataSetSource && [self.emptyDataSetSource respondsToSelector:@selector(verticalOffsetForEmptyDataSet:)]) {
         offset = [self.emptyDataSetSource verticalOffsetForEmptyDataSet:self];
     }
     return offset;
@@ -516,9 +521,6 @@ static char const * const kEmptyDataSetView =       "emptyDataSetView";
             }
         }
         
-        // Configure offset
-        view.verticalOffset = [self dzn_verticalOffset];
-        
         // Configure the empty dataset view
         view.backgroundColor = [self dzn_dataSetBackgroundColor];
         view.hidden = NO;
@@ -531,7 +533,12 @@ static char const * const kEmptyDataSetView =       "emptyDataSetView";
         view.fadeInOnDisplay = [self dzn_shouldFadeIn];
         
         [view setupConstraints];
+        [view layoutIfNeeded];
         
+        // Configure offset
+        view.verticalOffset = [self dzn_verticalOffsetWithEmptyDataViewHeight:view.contentView.frame.size.height];
+        [view adjustVerticalConstraints];
+
         [UIView performWithoutAnimation:^{
             [view layoutIfNeeded];            
         }];
@@ -921,15 +928,11 @@ Class dzn_baseClassToSwizzleForTarget(id target)
     // The content view must alway be centered to its superview
     NSLayoutConstraint *centerXConstraint = [self equallyRelatedConstraintWithView:self.contentView attribute:NSLayoutAttributeCenterX];
     NSLayoutConstraint *centerYConstraint = [self equallyRelatedConstraintWithView:self.contentView attribute:NSLayoutAttributeCenterY];
+    self.centerYConstraint = centerYConstraint;
     
     [self addConstraint:centerXConstraint];
     [self addConstraint:centerYConstraint];
     [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[contentView]|" options:0 metrics:nil views:@{@"contentView": self.contentView}]];
-    
-    // When a custom offset is available, we adjust the vertical constraints' constants
-    if (self.verticalOffset != 0 && self.constraints.count > 0) {
-        centerYConstraint.constant = self.verticalOffset;
-    }
     
     // If applicable, set the custom view's constraints
     if (_customView) {
@@ -1018,6 +1021,13 @@ Class dzn_baseClassToSwizzleForTarget(id target)
             [self.contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:[NSString stringWithFormat:@"V:|%@|", verticalFormat]
                                                                                      options:0 metrics:metrics views:views]];
         }
+    }
+}
+
+- (void)adjustVerticalConstraints {
+    // When a custom offset is available, we adjust the vertical constraints' constants
+    if (self.verticalOffset != 0 && self.centerYConstraint != nil) {
+        self.centerYConstraint.constant = self.verticalOffset;
     }
 }
 

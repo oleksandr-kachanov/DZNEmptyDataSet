@@ -144,6 +144,7 @@
  */
 - (CGPoint)offsetForEmptyDataSet:(UIScrollView *)scrollView DZNEmptyDataSetDeprecated(-verticalOffsetForEmptyDataSet:);
 - (CGFloat)verticalOffsetForEmptyDataSet:(UIScrollView *)scrollView;
+- (CGFloat)verticalOffsetForEmptyDataSet:(UIScrollView *)scrollView emptyDataViewHeight:(CGFloat)emptyDataViewHeight;
 
 /**
  Asks the data source for a vertical space between elements. Default is 11 pts.
